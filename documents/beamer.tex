@@ -1,0 +1,274 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Beamer Presentation
+% LaTeX Template
+% Version 1.0 (10/11/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND THEMES
+%----------------------------------------------------------------------------------------
+
+\documentclass{beamer}
+
+\mode<presentation> {
+
+% The Beamer class comes with a number of default slide themes
+% which change the colors and layouts of slides. Below this is a list
+% of all the themes, uncomment each in turn to see what they look like.
+
+%\usetheme{default}
+%\usetheme{AnnArbor}
+%\usetheme{Antibes}
+%\usetheme{Bergen}
+%\usetheme{Berkeley}
+%\usetheme{Berlin}
+%\usetheme{Boadilla}
+%\usetheme{CambridgeUS}
+%\usetheme{Copenhagen}
+%\usetheme{Darmstadt}
+%\usetheme{Dresden}
+%\usetheme{Frankfurt}
+%\usetheme{Goettingen}
+%\usetheme{Hannover}
+%\usetheme{Ilmenau}
+%\usetheme{JuanLesPins}
+%\usetheme{Luebeck}
+%\usetheme{Madrid}
+%\usetheme{Malmoe}
+%\usetheme{Marburg}
+%\usetheme{Montpellier}
+%\usetheme{PaloAlto}
+%\usetheme{Pittsburgh}
+%\usetheme{Rochester}
+%\usetheme{Singapore}
+%\usetheme{Szeged}
+%\usetheme{Warsaw}
+
+% As well as themes, the Beamer class has a number of color themes
+% for any slide theme. Uncomment each of these in turn to see how it
+% changes the colors of your current slide theme.
+
+%\usecolortheme{albatross}
+%\usecolortheme{beaver}
+%\usecolortheme{beetle}
+%\usecolortheme{crane}
+%\usecolortheme{dolphin}
+%\usecolortheme{dove}
+%\usecolortheme{fly}
+%\usecolortheme{lily}
+%\usecolortheme{orchid}
+%\usecolortheme{rose}
+%\usecolortheme{seagull}
+%\usecolortheme{seahorse}
+%\usecolortheme{whale}
+\usecolortheme{wolverine}
+
+%\setbeamertemplate{footline} % To remove the footer line in all slides uncomment this line
+%\setbeamertemplate{footline}[page number] % To replace the footer line in all slides with a simple slide count uncomment this line
+}
+
+\usepackage{graphicx} % Allows including images
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables
+\usepackage{hyperref}
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+\title[Riemann's Rearrangement Theorem]{Riemann's Rearrangement Theorem}
+\author[C. Ticer, T. Huber]{Courtney Ticer\\Faculty Advisor: Tim Huber}
+\institute[UTRGV] 
+{
+University of Texas Rio Grande Valley \\ 
+\medskip
+\textit{courtney.e.taylor01@utrgv.edu} 
+}
+\date[Math Project Presentation]{Mathamatics Project Presentation, May 7, 2016}
+
+
+\begin{frame}
+\titlepage % Print the title page as the first slide
+\end{frame}
+
+%----------------------------------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------------------------------
+
+%------------------------------------------------
+\section{History} % Sections can be created in order to organize your presentation into discrete blocks, all sections and subsections are automatically printed in the table of contents as an overview of the talk
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Abstact}
+"(Infinite) series are the invention of the devil, by using them, on may draw any conclusion he pleases, and that is why these series have produced so many fallacies and so many paradoxes." \\-Neils Hendrik Abel 
+\end{frame}
+
+%---------------------------------
+
+\begin{frame}
+As an example of what can go wrong, we will look at the alternating harmonic series $\sum_{n=1}^{\infty}\frac{(-1)^{n-1}}{n}$ and set this equal to $S$.
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\begin{equation}
+S = 1 - \frac{1}{2} + \frac{1}{3} - \frac{1}{4} + \frac{1}{5} - \frac{1}{6} + \frac{1}{7} - \frac{1}{8} + \frac{1}{9} - \frac{1}{10} + \frac{1}{11} - \frac{1}{12} + ...
+\end{equation}
+Multiply both sides by 2:
+\begin{equation}
+2S = 2 - 1 + \frac{2}{3} - \frac{1}{2} + \frac{2}{5} - \frac{1}{3} + \frac{2}{7} - \frac{1}{4} + \frac{2}{9} - \frac{1}{5} + \frac{2}{11} - \frac{1}{6} + ...
+\end{equation}
+Collect terms with the same denominator and simplify:
+\begin{equation}
+2S = (2 - 1)  - \frac{1}{2} + (\frac{2}{3} - \frac{1}{3}) - \frac{1}{4} + (\frac{2}{5} - \frac{1}{5}) - \frac{1}{6} + ...
+\end{equation}
+We arrive at this:
+\begin{equation}
+2S = 1 - \frac{1}{2} + \frac{1}{3} - \frac{1}{4} + \frac{1}{5} - \frac{1}{6} + ... 
+\end{equation}
+\end{frame}
+
+%---------------------------------
+\begin{frame}
+We see that on the right side of this equation we have the same series we started with. In other words, by combining equations 1 and 4, we obtain:
+\begin{equation}
+2S = S.
+\end{equation}
+We then divide by $S$, and have shown that: 
+\begin{equation}
+2 = 1. 
+\end{equation}
+\end{frame}
+
+%---------------------------------
+\begin{frame}
+\frametitle{Peter Lejeune-Dirichlet}
+\begin{figure}[h!]  
+\centering
+\includegraphics[width=0.4\textwidth]{Dirichlet.jpg}
+\caption{\label{fig:Dirichlet}Peter Lejeune-Dirichlet}
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Berhard Riemann}
+\begin{figure}[h!] 
+\centering
+\includegraphics[width=0.5\textwidth]{Riemann.jpeg}
+\caption{\label{fig:Riemann}Georg Friedrich Bernhard Riemann}
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+\section{Theorem}
+%------------------------------------------------
+
+%\begin{frame}
+%\frametitle{Bernhard Riemann}
+%\textit{"The rules for finite sums only apply to the series of the first  class [absolutely convergent series]. Only these can be considered as the aggregates of their terms; the series of the second class [conditionally convergent series] cannot. This circumstance was overlooked by mathematicians of the previous century, most likely, mainly on the grounds that the series which progress by increasing power of a variable generally (that is, excluding individual values of this variable) belong to the first class." -Bernhard Riemann (1826-1866)}
+%be careful when rearranging series (rules)%
+%\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Theorem: Part One}
+\textit{In a conditionally convergent series, the sum of the positive terms is a divergent series and the sum of the negative terms is a divergent series.} 
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+$\sum{a_n}$ is a conditionally convergent series
+\\Let $\sum{a_n^{-}}$ represent the negative terms of $\sum{a_n}$ 
+\\Let $\sum{a_n^{+}}$ represent the positive terms of $\sum{a_n}$
+\\Then $\sum{a_n} = \sum{a_n^{+}} + \sum{a_n^{-}}$
+\end{frame}
+
+%-------------------------------------------
+\begin{frame}
+Case 1: $\sum{a_n^{+}}$ and $\sum{a_n^{-}}$ \textbf{both converge}. (NOT POSSIBLE)
+\\Case 2: $\sum{a_n^{+}}$ \textbf{converges} and $\sum{a_n^{-}}$ \textbf{diverges} (NOT POSSIBLE)
+\\Case 3: $\sum{a_n^{+}}$ \textbf{diverges} and $\sum{a_n^{-}}$ \textbf{converges} (NOT POSSIBLE)
+\\Case 4: $\sum{a_n^{+}}$ and $\sum{a_n^{-}}$ \textbf{both diverge} (Satisfies Theorem)
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Theorem: Part Two}
+\textit{Let $\sum{a_n}$ be a conditionally convergent series, and let $S$ be a given real number. Then a rearrangement of the terms of $\sum{a_n}$ exists that converges to S.}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\begin{figure}  
+\centering
+\includegraphics[width=0.9\textwidth]{sn1.jpg}
+\end{figure}
+\end{frame}
+%---------------------------------
+\begin{frame}
+$$S_{{n_1}+{n_2}+{n_3}+...+{n_k}} \rightarrow S$$
+Let $\epsilon >0$. Then there exists an $N \in \mathbb{N}$ such that if $k \geq N$, then
+$$\mid S_{{n_1}+{n_2}+{n_3}+...+{n_k}} - S\mid < \epsilon.$$
+ Then, for $n_k\geq N_1$ we have,
+$$\mid S_{{n_1}+{n_2}+{n_3}+...+{n_k}} - S\mid $$
+$$\leq  \mid S_{{n_1}+{n_2}+{n_3}+...+{n_{k-1}}} - S_{{n_1}+{n_2}+{n_3}+...+{n_k}} \mid$$
+$$= \mid a_{n_k}\mid$$
+$$<\epsilon$$ 
+Therefore, we have found a $k\geq N$ such that $$\mid S_{{n_1}+{n_2}+{n_3}+...+{n_k}} - S\mid < \epsilon$$. 
+\end{frame}
+
+%------------------------------------------------
+\begin{frame}
+insert code and explain why (picture)
+\end{frame}
+
+
+%------------------------------------------------
+\begin{frame}
+\frametitle{References}
+\footnotesize{
+\begin{thebibliography}{99} % Beamer does not support BibTeX so references must be inserted manually as below
+\bibitem[Galanor]{p1} Galanor, Stewart
+\newblock Riemann's Rearrangement Theorem
+\newblock \emph{Mathematics Teacher} Vol.(80) 675 -- 681.
+
+\bibitem[Riemann]{p2} Riemann, Bernard
+\newblock {Uber die Darstellbarkeit einer Function durch eine triogonometrische Reihe}
+\newblock \emph{Gesammelte Mathematische Werke} (Leipzig 1876): 213-53
+\end{thebibliography}
+}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\Huge{\centerline{The End}}
+\end{frame}
+
+%----------------------------------------------------------------------------------------
+
+%\frametitle{Verbatim}
+%\begin{example}[Theorem Slide Code]
+%\begin{verbatim}
+%\begin{frame}
+%\frametitle{Theorem}
+%\begin{theorem}[Mass--energy equivalence]
+%$E = mc^2$
+%\end{theorem}
+%\end{frame}\end{verbatim}
+%\end{example}% 
+
+\end{document}
+

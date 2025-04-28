@@ -1,0 +1,19 @@
+# 忽略结果目录
+results/
+code/results/
+# 忽略文档输出（.pdf, .aux, .log 等）
+documents/*.pdf
+documents/*.aux
+documents/*.log
+documents/*.bbl
+documents/*.blg
+documents/*.out
+documents/*.run.xml
+# 忽略 notebook 的输出文件
+*.ipynb_checkpoints/
+# 其他临时文件
+*.log
+*.zip
+# 忽略所有 CSV 和 JSON 文件
+*.csv
+*.json

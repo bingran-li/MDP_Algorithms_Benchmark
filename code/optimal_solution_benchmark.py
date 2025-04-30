@@ -202,7 +202,7 @@ def analyze_influence_tree_vi_convergence():
     
     plt.xlabel('Iterations')
     plt.ylabel('Max Error (log scale)')
-    plt.title('Convergence of Influence Tree VI with Improved Criterion')
+    plt.title('Convergence of Influence Tree VI')
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()

@@ -193,17 +193,16 @@ class ValueIteration(AlgorithmBase):
         if self.seed is not None:
             np.random.seed(self.seed)
             
-        # For influence-tree-vi, initialize a set of states to update
+        # For influence-tree-vi, initialize with a subset of states
         if rule == 'influence-tree-vi':
-            # Start with a small random subset of states
+            # Set default batch size if not provided
             if update_batch_size is None:
                 update_batch_size = max(1, int(n_states * 0.1))  # Default: 10% of states
-            
-            current_states = np.random.choice(
-                np.arange(n_states), 
-                size=min(update_batch_size, n_states), 
-                replace=False
-            )
+                
+            # Initialize with states having highest initial reward
+            state_rewards = np.max(rewards, axis=1)
+            current_states = np.argsort(-state_rewards)[:update_batch_size]
+
         
         for i in range(max_iterations):
             delta = 0
@@ -275,84 +274,79 @@ class ValueIteration(AlgorithmBase):
                 for s in states_to_update:
                     q_values = np.zeros(n_actions)
                     for a in range(n_actions):
-                        q_values[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values)
+                        # Use values_old instead of values for consistent updates
+                        q_values[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values_old)
                     values[s] = np.max(q_values)
                 
                 # Check convergence on all states
                 delta = np.max(np.abs(values - values_old))
             
             elif rule == 'influence-tree-vi':
+                # Influence Tree Value Iteration - Specialized for deterministic MDPs
+                
+                # Use update_batch_size as number of states to update per iteration
+                if update_batch_size is None:
+                    update_batch_size = max(1, int(n_states * 0.1))  # Default: 10% of states
+                
+                # Track which states were updated in this iteration
                 values_old = values.copy()
                 
-                # Update current batch of states
-                local_delta = 0  # Track the maximum change for updated states
+                # For the first iteration, initialize with states most likely to be important
+                if i == 0:
+                    # For deterministic MDPs, start with high-reward states
+                    state_rewards = np.max(rewards, axis=1)
+                    current_states = np.argsort(-state_rewards)[:update_batch_size]
+                
+                # Update the CURRENT batch of states
                 for s in current_states:
-                    v_old = values[s]
                     q_values = np.zeros(n_actions)
                     for a in range(n_actions):
-                        q_values[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values)
+                        q_values[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values_old)
                     values[s] = np.max(q_values)
-                    # Track maximum change in currently updated states
-                    local_delta = max(local_delta, abs(values[s] - v_old))
                 
-                # Build influence tree: find states influenced by the current batch
-                influenced_states = set()
-                for s in range(n_states):
-                    # Check if s is influenced by any state in current_states
-                    for prev_s in current_states:
-                        for a in range(n_actions):
-                            # If transition probability from prev_s to s is significant
-                            if transitions[prev_s, a, s] > 0.01:  # Threshold for "influenced"
-                                influenced_states.add(s)
-                                break
-                        if s in influenced_states:
-                            break
+                # For deterministic MDPs, we need to find the forward influence tree
+                # Meaning states that are directly reachable from the current batch
+                forward_influence = set()
                 
-                # Select next batch from influenced states
-                influenced_array = np.array(list(influenced_states))
-                if len(influenced_array) > 0:
-                    # If we have influenced states, select from them
-                    if len(influenced_array) <= update_batch_size:
-                        current_states = influenced_array
-                    else:
-                        current_states = np.random.choice(
-                            influenced_array, 
-                            size=update_batch_size, 
-                            replace=False
-                        )
+                # For each state in current batch, find states it can directly reach
+                for s in current_states:
+                    for a in range(n_actions):
+                        # In deterministic MDPs, typically only one next state has non-zero probability
+                        next_states = np.where(transitions[s, a] > 0)[0]
+                        forward_influence.update(next_states)
+                
+                # Remove states already in current batch (to avoid repeating)
+                forward_influence = forward_influence - set(current_states)
+                
+                # Choose states from the forward influence tree for the next iteration
+                # If the influence tree is smaller than the batch size, add random states
+                influenced_states = list(forward_influence)
+                
+                if len(influenced_states) < update_batch_size:
+                    remaining_states = list(set(range(n_states)) - forward_influence - set(current_states))
+                    if remaining_states:
+                        random_count = min(update_batch_size - len(influenced_states), len(remaining_states))
+                        random_states = np.random.choice(remaining_states, size=random_count, replace=False)
+                        influenced_states.extend(random_states)
+                
+                # Set current states for the next iteration
+                if len(influenced_states) > update_batch_size:
+                    current_states = np.random.choice(influenced_states, size=update_batch_size, replace=False)
                 else:
-                    # If no influenced states, select random states
-                    current_states = np.random.choice(
-                        np.arange(n_states), 
-                        size=min(update_batch_size, n_states), 
-                        replace=False
-                    )
+                    current_states = np.array(influenced_states)
                 
-                # Compute Bellman error to check global convergence periodically
-                if i % 10 == 0:  # Check every 10 iterations
-                    # Calculate max Q-values for all states
-                    q_max = np.zeros(n_states)
+                # CRUCIAL FIX: Every few iterations, perform a full sweep of all states
+                # This ensures we don't miss any important states in deterministic MDPs
+                if i % 20 == 0 and i > 0:  # Every 5 iterations
                     for s in range(n_states):
-                        q_s = np.zeros(n_actions)
+                        q_values = np.zeros(n_actions)
                         for a in range(n_actions):
-                            q_s[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values)
-                        q_max[s] = np.max(q_s)
-                    
-                    # Calculate the Bellman error
-                    bellman_error = np.max(np.abs(q_max - values))
-                    delta = bellman_error  # Use Bellman error for convergence check
-                else:
-                    # Use local delta for other iterations
-                    delta = local_delta
+                            q_values[a] = rewards[s, a] + gamma * np.sum(transitions[s, a] * values_old)
+                        values[s] = np.max(q_values)
                 
-                # Also monitor the global value change
-                global_delta = np.max(np.abs(values - values_old))
-                # If updating only a small subset and global changes are small,
-                # use a weighted convergence criterion
-                if len(current_states) < n_states * 0.2:  # If updating less than 20% of states
-                    # Give more weight to local_delta to avoid premature convergence
-                    delta = max(local_delta, global_delta * 0.1)
-                
+                # Check convergence on all states
+                delta = np.max(np.abs(values - values_old))
+            
             elif rule == 'rp-cyclic-vi':
                 # RPCyclicVI (Approach 5): Randomly Permuted Cyclic Value Iteration
                 values_old = values.copy()

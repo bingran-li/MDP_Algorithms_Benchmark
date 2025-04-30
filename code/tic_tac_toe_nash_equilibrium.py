@@ -25,6 +25,156 @@ from mdp_lib.markov_games import TicTacToeGame, MGPValueIteration
 # Set seed for reproducibility
 SEED = 42
 
+# Fix the incorrect Nash equilibrium calculation by creating a corrected version
+class CorrectedMGPValueIteration(MGPValueIteration):
+    """
+    Corrected Value Iteration algorithm for Markov Game Processes to correctly find Nash equilibrium
+    for Tic-Tac-Toe, which is known to be a draw with perfect play.
+    """
+    def _get_state_value(self, state, player, return_q_values=False):
+        """
+        Get the minimax value of a state for a player, with corrected zero-sum calculations
+        
+        Args:
+            state: The current state
+            player: The current player (0 or 1)
+            return_q_values: Whether to return Q-values for each action
+            
+        Returns:
+            float: The state value
+            dict: Q-values for each action (if return_q_values=True)
+        """
+        actions = self.game.get_available_actions(state)
+
+        if not actions:
+            # If no actions (shouldn't happen for non-terminal states), return 0
+            return 0 if not return_q_values else (0, {})
+
+        # Calculate value for each action
+        action_values = {}
+
+        for action in actions:
+            next_state, reward, done, _ = self.game.get_next_state(state, action)
+            next_state_key = self.encode_state(next_state)
+
+            if done:
+                # Terminal state - use reward directly
+                action_values[action] = reward
+            else:
+                # For non-terminal states, the value is the negative of the opponent's value
+                # This is the key insight for zero-sum games
+                next_value = self.values.get(next_state_key, 0)
+                # Value for current player is negative of next player's value
+                action_values[action] = -next_value
+
+        # For either player, select the action that maximizes their value
+        # (since we're already accounting for the zero-sum property by negating)
+        best_value = max(action_values.values()) if action_values else 0
+            
+        if return_q_values:
+            return best_value, action_values
+        
+        return best_value
+
+    def _extract_policies(self):
+        """Extract optimal policies for both players from the value function"""
+        for state_key in self.values:
+            state = self._decode_state(state_key)
+            
+            if self.game.is_terminal(state):
+                # No policy needed for terminal states
+                continue
+            
+            # Extract policy for current player
+            _, current_player = state
+            
+            # Use Q-values if available
+            if state_key in self.q_values:
+                q_values = self.q_values[state_key]
+                
+                # Both players are maximizing from their perspective
+                best_action = max(q_values.items(), key=lambda x: x[1])[0] if q_values else None
+                self.policies[current_player][state_key] = best_action
+            else:
+                # Fallback to computing best action directly
+                actions = self.game.get_available_actions(state)
+                best_action = None
+                best_value = float('-inf')
+                
+                for action in actions:
+                    next_state, reward, done, _ = self.game.get_next_state(state, action)
+                    next_state_key = self.encode_state(next_state)
+                    
+                    if done:
+                        action_value = reward
+                    else:
+                        # Value is negative of next player's value
+                        next_value = self.values.get(next_state_key, 0)
+                        action_value = -next_value
+                    
+                    # Both players maximize their value
+                    if action_value > best_value:
+                        best_value = action_value
+                        best_action = action
+                
+                # Store optimal action in policy
+                self.policies[current_player][state_key] = best_action
+
+    def _decode_state(self, state_key):
+        """
+        Decode a state key back to a state
+        
+        Args:
+            state_key: The encoded state key
+            
+        Returns:
+            The decoded state
+        """
+        # For TicTacToe, state_key is already the state (board, player)
+        return state_key
+    
+    def play_optimal_move(self, state):
+        """
+        Get the optimal move according to the Nash equilibrium strategy
+        
+        Args:
+            state: The current game state
+            
+        Returns:
+            The optimal action to take
+        """
+        state_key = self.encode_state(state)
+        board, player = state
+        
+        # Get the policy for the current player
+        if state_key in self.policies[player]:
+            return self.policies[player][state_key]
+        
+        # If state not in policy, compute the best action directly
+        actions = self.game.get_available_actions(state)
+        if not actions:
+            return None  # No valid moves
+        
+        best_action = None
+        best_value = float('-inf')
+        
+        for action in actions:
+            next_state, reward, done, _ = self.game.get_next_state(state, action)
+            next_state_key = self.encode_state(next_state)
+            
+            if done:
+                action_value = reward
+            else:
+                # Value is negative of next player's value
+                next_value = self.values.get(next_state_key, 0)
+                action_value = -next_value
+            
+            if action_value > best_value:
+                best_value = action_value
+                best_action = action
+                
+        return best_action
+
 def print_separator(title=None):
     """Print a separator line with optional title"""
     width = 80
@@ -46,7 +196,7 @@ def analyze_tic_tac_toe():
     
     # Create the solver
     print("Creating Value Iteration solver for Markov Game Process...")
-    solver = MGPValueIteration(game, seed=SEED)
+    solver = CorrectedMGPValueIteration(game, seed=SEED)
     
     # Solve the game
     print("\nSolving game using Value Iteration to find the Nash equilibrium...")
@@ -234,4 +384,4 @@ def analyze_tic_tac_toe():
 
 
 if __name__ == "__main__":
-    analyze_tic_tac_toe() 
+    analyze_tic_tac_toe()

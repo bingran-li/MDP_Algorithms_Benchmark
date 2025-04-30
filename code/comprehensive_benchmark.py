@@ -39,22 +39,14 @@ def run_comprehensive_benchmark():
     
     # Define MDP specifications
     mdp_specs = [
-        (5, 'stochastic'),    # Very small stochastic
-        (10, 'stochastic'),   # Small stochastic
-        (20, 'stochastic'),   # Medium-small stochastic
-        (40, 'stochastic'),   # Medium stochastic
-        (60, 'stochastic'),   # Medium-large stochastic
-        (80, 'stochastic'),   # Large stochastic
-        (100, 'stochastic'),  # Very large stochastic
-        (200, 'stochastic'),  # Extra large stochastic
-        (5, 'deterministic'),   # Very small deterministic
-        (10, 'deterministic'),  # Small deterministic
+        (20, 'stochastic'),  # Medium-small stochastic
+        (40, 'stochastic'),  # Medium stochastic
+        (80, 'stochastic'),  # Medium-large stochastic
+        (200, 'stochastic'),  # Large stochastic
         (20, 'deterministic'),  # Medium-small deterministic
         (40, 'deterministic'),  # Medium deterministic
-        (60, 'deterministic'),  # Medium-large deterministic
-        (80, 'deterministic'),  # Large deterministic
-        (100, 'deterministic'),  # Very large deterministic
-        (200, 'deterministic')  # Extra large deterministic
+        (80, 'deterministic'),  # Medium-large deterministic
+        (200, 'deterministic'),  # Large deterministic
     ]
     
     # Prepare MDPs
@@ -78,7 +70,8 @@ def run_comprehensive_benchmark():
     param_grid = {
         'policy_iteration': {'rule': ['standard', 'modified']},
         'value_iteration': {'rule': ['standard', 'gauss-seidel', 'random-vi', 'influence-tree-vi', 'rp-cyclic-vi']},
-        'simplex': {'rule': ['bland', 'largest_coefficient', 'steepest_edge']}
+        'simplex': {'rule': ['bland']},
+
     }
     
     # Run benchmark with multiple runs per configuration for statistical analysis
@@ -255,8 +248,28 @@ def create_visualizations(benchmarker):
     
     # Define a filter function for small MDPs
     def small_mdp_filter(result, _):
-        return (result['n_states'] == 10 and 
+        return (result['n_states'] == 40 and 
                 result['mdp_type'] == 'stochastic' and
+                result['run_idx'] == 0)  # Only first run
+    
+    # Use the original convergence plot function
+    print("    Standard convergence plot (using difference from 'optimal' solution):")
+    benchmarker.plot_convergence(
+        subset=small_mdp_filter,
+        figsize=(12, 8)
+    )
+    
+    # Use the improved convergence plot with Bellman error
+    print("    Improved convergence plot (using Bellman error):")
+    benchmarker.plot_improved_convergence(
+        subset=small_mdp_filter,
+        figsize=(12, 8),
+        use_bellman_error=True
+    )
+
+    def small_mdp_filter(result, _):
+        return (result['n_states'] == 40 and 
+                result['mdp_type'] == 'deterministic' and
                 result['run_idx'] == 0)  # Only first run
     
     # Use the original convergence plot function
@@ -276,9 +289,15 @@ def create_visualizations(benchmarker):
     
     # Also create convergence plots for larger MDPs to see behavior more clearly
     def medium_mdp_filter(result, _):
-        return (result['n_states'] == 40 and 
+        return (result['n_states'] == 200 and 
                 result['mdp_type'] == 'stochastic' and
                 result['run_idx'] == 0)  # Only first run
+    
+    print("    Standard convergence plot (using difference from 'optimal' solution):")
+    benchmarker.plot_convergence(
+        subset=medium_mdp_filter,
+        figsize=(12, 8)
+    )
     
     print("    Improved convergence plot for medium-sized MDPs:")
     benchmarker.plot_improved_convergence(
@@ -289,9 +308,15 @@ def create_visualizations(benchmarker):
 
     # Also create convergence plots for larger MDPs to see behavior more clearly
     def medium_mdp_filter(result, _):
-        return (result['n_states'] == 40 and 
+        return (result['n_states'] == 200 and 
                 result['mdp_type'] == 'deterministic' and
                 result['run_idx'] == 0)  # Only first run
+    
+    print("    Standard convergence plot (using difference from 'optimal' solution):")
+    benchmarker.plot_convergence(
+        subset=medium_mdp_filter,
+        figsize=(12, 8)
+    )
     
     print("    Improved convergence plot for medium-sized MDPs:")
     benchmarker.plot_improved_convergence(
@@ -368,7 +393,7 @@ def create_visualizations(benchmarker):
     
     # 6. NEW: Runtime by state size for dense and sparse MDPs
     print("  - Creating runtime by state size for dense/sparse MDPs...")
-    state_sizes = [5, 20, 40, 60, 80, 100, 200]
+    state_sizes = [20, 40, 80, 100, 200, 400]
     
     for mdp_type in mdp_types:
         plt.figure(figsize=(12, 8))
@@ -380,7 +405,7 @@ def create_visualizations(benchmarker):
             alg_df = df[mask]
             
             # Filter for current MDP type
-            if mdp_type == 'sparse':
+            if mdp_type == 'deterministic':
                 type_mask = (alg_df['mdp_type'] == 'deterministic')
             else:  # dense
                 type_mask = (alg_df['mdp_type'] == 'stochastic')
@@ -554,7 +579,7 @@ def run_sparsity_benchmark():
             n_states, mdp_type, sparsity = spec
             mdp = mdp_gen.generate_mdp(
                 n_states=n_states,
-                m_actions=4,  # Using 4 actions for all MDPs
+                m_actions=int(n_states),  # Using 4 actions for all MDPs
                 mdp_type=mdp_type,
                 sparsity=sparsity
             )
@@ -567,6 +592,7 @@ def run_sparsity_benchmark():
     # Define subset of algorithms to test (choose only the most relevant ones)
     algorithms = ['value_iteration']
     param_grid = {
+        'policy_iteration': {'rule': ['modified']},
         'value_iteration': {'rule': ['standard', 'gauss-seidel', 'random-vi', 
                                      'influence-tree-vi', 'rp-cyclic-vi']}
     }
@@ -834,7 +860,7 @@ if __name__ == "__main__":
     print("=" * 80)
     
     # Choose which benchmarks to run
-    run_main_benchmark = True
+    run_main_benchmark = False
     run_sparsity_analysis = True
     
     if run_main_benchmark:

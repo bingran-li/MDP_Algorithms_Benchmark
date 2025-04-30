@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 from .generator import MDPGenerator
-from .algorithms import AlgorithmFactory
+from .algorithms import AlgorithmFactory, calculate_optimal_values
 
 
 class Benchmarker:
@@ -71,7 +71,7 @@ class Benchmarker:
                 # Generate MDP with default parameters
                 mdp = generator.set_seed(mdp_seed).generate_mdp(
                     n_states=n_states,
-                    m_actions=4,
+                    m_actions=int(n_states),
                     mdp_type=mdp_type
                 )
                 
@@ -726,57 +726,47 @@ class Benchmarker:
         
         plt.figure(figsize=figsize)
         
-        # Create shorter labels for the groups
-        labels = []
+        # Create a temporary DataFrame with improved grouping and labeling
+        df_plot = self.df_results.copy()
         
-        # Get unique combinations of group_by columns
-        unique_groups = self.df_results[group_by].drop_duplicates()
-        
-        # Create mapping from original group names to shorter labels
-        group_to_label = {}
-        for i, row in unique_groups.iterrows():
-            # Extract group values
-            group_vals = [row[col] for col in group_by]
+        # Create a display label column for better readability in the plot
+        if len(group_by) == 1 and group_by[0] == 'algorithm':
+            # Just use algorithm name
+            df_plot['_display_label'] = df_plot['algorithm']
+        elif 'algorithm' in group_by and any(col.startswith('param_') for col in group_by):
+            # Combine algorithm and parameters in a readable format
+            param_cols = [col for col in group_by if col.startswith('param_')]
             
-            # Construct original group name (this will be used in _group column)
-            original_group = '_'.join([str(val) for val in group_vals])
-            
-            # Create shorter label
-            if len(group_by) == 1 and group_by[0] == 'algorithm':
-                # Just use algorithm name
-                label = str(row['algorithm'])
-            elif 'algorithm' in group_by and 'param_rule' in group_by:
-                # Use algorithm + rule format
-                alg_idx = group_by.index('algorithm')
-                rule_idx = group_by.index('param_rule')
-                label = f"{group_vals[alg_idx]}\n({group_vals[rule_idx]})"
-            else:
-                # Generic format
-                label = '\n'.join([f"{col}:{val}" for col, val in zip(group_by, group_vals)])
-            
-            group_to_label[original_group] = label
-            labels.append(label)
+            # Format the display label with algorithm and parameters
+            df_plot['_display_label'] = df_plot.apply(
+                lambda row: f"{row['algorithm']}\n({', '.join(row[col].replace('param_', '') if isinstance(row[col], str) else str(row[col]) for col in param_cols)})",
+                axis=1
+            )
+        else:
+            # Generic format for any grouping columns
+            df_plot['_display_label'] = df_plot[group_by].astype(str).agg('\n'.join, axis=1)
         
-        # Create a temporary column for grouping
-        self.df_results['_group'] = self.df_results[group_by].astype(str).agg('_'.join, axis=1)
-        
-        # Create box plot
-        bp = self.df_results.boxplot(
+        # Create the boxplot
+        ax = plt.gca()
+        boxplot = df_plot.boxplot(
             column=metric,
-            by='_group',
+            by='_display_label',
+            return_type='axes',
             grid=True,
-            return_type='dict',
-            rot=0  # No rotation initially, we'll use our custom labels
+            rot=45,  # Rotate labels for better readability
+            ax=ax
         )
         
-        # Replace x-tick labels with our shorter ones
-        plt.gca().set_xticklabels(labels)
-        
+        # Customize plot appearance
         plt.title(f'Performance Comparison: {metric.capitalize().replace("_", " ")}')
         plt.suptitle('')  # Remove default title
-        plt.xlabel('Algorithm Configuration')
+        plt.xlabel('')    # Remove x-axis label (redundant with the box labels)
         plt.ylabel(metric.replace('_', ' ').capitalize())
         
+        # Add grid lines for easier reading
+        plt.grid(True, axis='y', linestyle='--', alpha=0.7)
+        
+        # Ensure labels are visible and don't overlap
         plt.tight_layout()
         
         # Save the figure if a path is provided
@@ -793,10 +783,7 @@ class Benchmarker:
         
         plt.show()
         
-        # Remove temporary column
-        self.df_results.drop(columns=['_group'], inplace=True)
-        
-        return bp
+        return boxplot
 
     def plot_improved_convergence(self, subset=None, figsize=(12, 8), use_bellman_error=True, save_path=None):
         """
@@ -976,7 +963,7 @@ class Benchmarker:
         result = algorithm.solve(
             mdp, 
             max_iterations=10000,  # Very large number of iterations 
-            tolerance=1e-10,       # Very tight tolerance
+            tolerance=1e-16,       # Very tight tolerance
             rule='gauss-seidel'    # Stable update rule
         )
         

@@ -352,13 +352,14 @@ class MGPValueIteration:
     """
     Value Iteration algorithm for Markov Game Processes (specifically zero-sum games)
     """
-    def __init__(self, game, seed=None):
+    def __init__(self, game, seed=None, lazy_init=True):
         """
         Initialize the Value Iteration solver
         
         Args:
             game: The game (MGP) to solve
             seed (int, optional): Random seed for reproducibility
+            lazy_init (bool): If True, don't initialize state space until solve is called
         """
         self.game = game
         self.seed = seed
@@ -367,8 +368,16 @@ class MGPValueIteration:
         
         # Store value function for all states
         self.values = {}
+        # Store Q-values for analysis
+        self.q_values = {}
         # Store policies for both players
         self.policies = {0: {}, 1: {}}
+        # Store explored states
+        self.explored_states = set()
+        
+        # If not lazy_init, initialize state space immediately
+        if not lazy_init:
+            self._initialize_state_space()
     
     def encode_state(self, state):
         """
@@ -383,27 +392,37 @@ class MGPValueIteration:
         # For TicTacToe, state is already hashable (tuple)
         return state
     
-    def solve(self, max_iterations=1000, tolerance=1e-6):
+    def solve(self, max_iterations=1000, tolerance=1e-6, verbose=True, batch_init=True):
         """
         Solve the Markov Game using Value Iteration
         
         Args:
             max_iterations (int): Maximum iterations for convergence
             tolerance (float): Convergence tolerance
+            verbose (bool): Whether to print progress
+            batch_init (bool): Use faster batch initialization
             
         Returns:
             dict: Value function for player 0 (assumes zero-sum)
         """
-        print("Solving game using Value Iteration...")
+        if verbose:
+            print("Solving game using Value Iteration...")
         start_time = time.time()
         
         # Initialize state space by exploring the game
-        print("Initializing state space...")
-        self._initialize_state_space()
-        print(f"Found {len(self.values)} possible states")
+        if verbose:
+            print("Initializing state space...")
+        
+        if not self.explored_states:
+            self._initialize_state_space(batch_init=batch_init, verbose=verbose)
+        
+        if verbose:
+            print(f"Found {len(self.values)} possible states")
         
         # Value iteration for zero-sum games
-        print("Starting value iteration...")
+        if verbose:
+            print("Starting value iteration...")
+        
         for iteration in range(max_iterations):
             delta = 0
             
@@ -420,51 +439,101 @@ class MGPValueIteration:
                 # Determine current player
                 _, current_player = state
                 
-                # Get minimax value
-                new_value = self._get_state_value(state, current_player)
+                # Get minimax value and store Q-values
+                new_value, q_values = self._get_state_value(state, current_player, return_q_values=True)
+                
+                # Store Q-values for analysis
+                self.q_values[state_key] = q_values
                 
                 # Update value and track largest change
                 self.values[state_key] = new_value
                 delta = max(delta, abs(new_value - old_value))
             
-            # Print progress every 10 iterations
-            if iteration % 10 == 0:
+            # Print progress periodically
+            if verbose and iteration % 10 == 0:
                 print(f"Iteration {iteration}, Max delta: {delta:.6f}")
             
             # Check convergence
             if delta < tolerance:
-                print(f"Converged after {iteration+1} iterations!")
+                if verbose:
+                    print(f"Converged after {iteration+1} iterations!")
                 break
         
         # Extract optimal policies for both players
         self._extract_policies()
         
         runtime = time.time() - start_time
-        print(f"Solution found in {runtime:.2f} seconds")
+        if verbose:
+            print(f"Solution found in {runtime:.2f} seconds")
         
         return {
             'values': self.values,
             'policies': self.policies,
+            'q_values': self.q_values,
             'iterations': min(iteration+1, max_iterations),
             'converged': delta < tolerance,
             'runtime': runtime
         }
     
-    def _initialize_state_space(self):
-        """Initialize the state space by exploring all possible game states"""
-        # Queue of states to explore
-        queue = [self.game.get_initial_state()]
-        explored = set()
+    def _initialize_state_space(self, max_states=None, batch_init=True, verbose=False):
+        """
+        Initialize the state space by exploring all possible game states
         
-        while queue:
+        Args:
+            max_states (int, optional): Maximum number of states to explore (for large games)
+            batch_init (bool): Use faster batch initialization
+            verbose (bool): Whether to print progress
+        """
+        # Start with initial state
+        initial_state = self.game.get_initial_state()
+        initial_state_key = self.encode_state(initial_state)
+        
+        if batch_init:
+            # Faster batch initialization for Tic-Tac-Toe
+            # Directly generate all possible board configurations
+            # This is much faster for Tic-Tac-Toe
+            
+            # For Tic-Tac-Toe specifically, we know the structure
+            if isinstance(self.game, type(self.game).__class__) and hasattr(self.game, 'board_size'):
+                k = self.game.board_size
+                all_states = self._generate_all_valid_boards(k)
+                
+                # Process states in batch
+                for state in all_states:
+                    state_key = self.encode_state(state)
+                    self.explored_states.add(state_key)
+                    
+                    if self.game.is_terminal(state):
+                        # Terminal state has a fixed value
+                        self.values[state_key] = self.game.get_reward(state, 0)
+                    else:
+                        # Non-terminal state starts with zero value
+                        self.values[state_key] = 0
+                
+                if verbose:
+                    print(f"Batch initialization complete: {len(self.values)} states")
+                return
+            
+        # Fallback to traditional BFS for state exploration
+        # Queue of states to explore
+        queue = [initial_state]
+        self.explored_states = set()
+        explored_count = 0
+        
+        while queue and (max_states is None or explored_count < max_states):
             state = queue.pop(0)
             state_key = self.encode_state(state)
             
-            if state_key in explored:
+            if state_key in self.explored_states:
                 continue
             
             # Mark as explored
-            explored.add(state_key)
+            self.explored_states.add(state_key)
+            explored_count += 1
+            
+            # Print progress for large state spaces
+            if verbose and explored_count % 1000 == 0:
+                print(f"  Explored {explored_count} states...")
             
             # Initialize value function
             if self.game.is_terminal(state):
@@ -482,26 +551,69 @@ class MGPValueIteration:
                     next_state, _, _, _ = self.game.get_next_state(state, action)
                     queue.append(next_state)
     
-    def _get_state_value(self, state, player):
+    def _generate_all_valid_boards(self, k):
+        """
+        Generate all valid Tic-Tac-Toe board configurations
+        
+        Args:
+            k (int): Board size
+            
+        Returns:
+            list: All valid board states
+        """
+        # Start with the empty board
+        initial_state = self.game.get_initial_state()
+        
+        # Use a recursive helper function to generate all valid boards
+        all_states = []
+        visited = set()
+        
+        def generate(state):
+            state_key = self.encode_state(state)
+            if state_key in visited:
+                return
+            
+            visited.add(state_key)
+            all_states.append(state)
+            
+            # If terminal, don't explore further
+            if self.game.is_terminal(state):
+                return
+            
+            # Try all possible moves
+            board, player = state
+            actions = self.game.get_available_actions(state)
+            
+            for action in actions:
+                next_state, _, _, _ = self.game.get_next_state(state, action)
+                generate(next_state)
+        
+        # Start generation
+        generate(initial_state)
+        return all_states
+    
+    def _get_state_value(self, state, player, return_q_values=False):
         """
         Get the minimax value of a state for a player
         
         Args:
             state: The current state
             player: The current player (0 or 1)
+            return_q_values: Whether to return Q-values for each action
             
         Returns:
             float: The state value
+            dict: Q-values for each action (if return_q_values=True)
         """
         actions = self.game.get_available_actions(state)
 
         if not actions:
             # If no actions (shouldn't happen for non-terminal states), return 0
-            return 0
+            return 0 if not return_q_values else (0, {})
 
         # For player 0 (maximizing), pick the action with highest value
         # For player 1 (minimizing in zero-sum), pick the action with lowest value
-        action_values = []
+        action_values = {}
 
         for action in actions:
             next_state, reward, done, _ = self.game.get_next_state(state, action)
@@ -509,20 +621,23 @@ class MGPValueIteration:
 
             if done:
                 # If game ends, use the reward
-                action_value = reward if player == 0 else -reward
+                action_values[action] = reward if player == 0 else -reward
             else:
                 # Otherwise use the value of the next state (negated for player 1)
                 # In zero-sum games, V(s) for player 1 = -V(s) for player 0
                 next_value = self.values.get(next_state_key, 0)
-                action_value = next_value if player == 0 else -next_value
-
-            action_values.append(action_value)
+                action_values[action] = next_value if player == 0 else -next_value
 
         # Player 0 maximizes, player 1 minimizes
         if player == 0:
-            return max(action_values)
+            best_value = max(action_values.values()) if action_values else 0
         else:
-            return min(action_values)
+            best_value = min(action_values.values()) if action_values else 0
+            
+        if return_q_values:
+            return best_value, action_values
+        
+        return best_value
     
     def _extract_policies(self):
         """Extract optimal policies for both players from the value function"""
@@ -535,33 +650,46 @@ class MGPValueIteration:
             
             # Extract policy for current player
             _, current_player = state
-            actions = self.game.get_available_actions(state)
             
-            best_action = None
-            best_value = float('-inf') if current_player == 0 else float('inf')
-            
-            for action in actions:
-                next_state, reward, done, _ = self.game.get_next_state(state, action)
-                next_state_key = self.encode_state(next_state)
+            # Use Q-values if available
+            if state_key in self.q_values:
+                q_values = self.q_values[state_key]
                 
-                if done:
-                    # If game ends, use the reward
-                    action_value = reward if current_player == 0 else -reward
-                else:
-                    # Otherwise use the value of the next state
-                    next_value = self.values.get(next_state_key, 0)
-                    action_value = next_value if current_player == 0 else -next_value
+                if current_player == 0:  # Maximizing player
+                    best_action = max(q_values.items(), key=lambda x: x[1])[0] if q_values else None
+                else:  # Minimizing player
+                    best_action = min(q_values.items(), key=lambda x: x[1])[0] if q_values else None
                 
-                # Update best action
-                if current_player == 0 and action_value > best_value:
-                    best_value = action_value
-                    best_action = action
-                elif current_player == 1 and action_value < best_value:
-                    best_value = action_value
-                    best_action = action
-            
-            # Store optimal action in policy
-            self.policies[current_player][state_key] = best_action
+                self.policies[current_player][state_key] = best_action
+            else:
+                # Fallback to computing best action directly
+                actions = self.game.get_available_actions(state)
+                
+                best_action = None
+                best_value = float('-inf') if current_player == 0 else float('inf')
+                
+                for action in actions:
+                    next_state, reward, done, _ = self.game.get_next_state(state, action)
+                    next_state_key = self.encode_state(next_state)
+                    
+                    if done:
+                        # If game ends, use the reward
+                        action_value = reward if current_player == 0 else -reward
+                    else:
+                        # Otherwise use the value of the next state
+                        next_value = self.values.get(next_state_key, 0)
+                        action_value = next_value if current_player == 0 else -next_value
+                    
+                    # Update best action
+                    if current_player == 0 and action_value > best_value:
+                        best_value = action_value
+                        best_action = action
+                    elif current_player == 1 and action_value < best_value:
+                        best_value = action_value
+                        best_action = action
+                
+                # Store optimal action in policy
+                self.policies[current_player][state_key] = best_action
     
     def _decode_state(self, state_key):
         """
@@ -623,6 +751,47 @@ class MGPValueIteration:
                 best_action = action
         
         return best_action
+    
+    def get_action_values(self, state, player=None):
+        """
+        Get the values of all actions in a state
+        
+        Args:
+            state: The game state
+            player: The player (0 or 1)
+            
+        Returns:
+            dict: Action values {action: value}
+        """
+        if player is None:
+            _, player = state
+            
+        state_key = self.encode_state(state)
+        
+        # Check if we have Q-values for this state
+        if state_key in self.q_values:
+            q_values = self.q_values[state_key]
+            
+            # If player 1, negate the values (zero-sum game)
+            if player == 1:
+                return {a: -v for a, v in q_values.items()}
+            return q_values
+        
+        # Fallback: compute action values on the fly
+        actions = self.game.get_available_actions(state)
+        action_values = {}
+        
+        for action in actions:
+            next_state, reward, done, _ = self.game.get_next_state(state, action)
+            next_state_key = self.encode_state(next_state)
+            
+            if done:
+                action_values[action] = reward if player == 0 else -reward
+            else:
+                next_value = self.values.get(next_state_key, 0)
+                action_values[action] = next_value if player == 0 else -next_value
+        
+        return action_values
 
 
 def play_tic_tac_toe_game(solver=None, player_human=0):
@@ -738,4 +907,4 @@ if __name__ == "__main__":
     solver = solve_tic_tac_toe_example()
     
     # Allow the user to play against the optimal policy
-    play_tic_tac_toe_game(solver) 
+    play_tic_tac_toe_game(solver)

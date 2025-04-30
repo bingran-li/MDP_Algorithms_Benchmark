@@ -17,3 +17,7 @@ documents/*.run.xml
 # 忽略所有 CSV 和 JSON 文件
 *.csv
 *.json
+*.png
+# 忽略所有以 results- 开头的输出目录
+results-*/
+
